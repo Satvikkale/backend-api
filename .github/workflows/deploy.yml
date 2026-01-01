@@ -10,30 +10,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - name: Set up SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.7.0
+        with:
+          ssh-private-key: ${{ secrets.VM_SSH_KEY }}
 
       - name: Deploy to VM
         run: |
-          ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} << 'EOF'
+          ssh -o StrictHostKeyChecking=no azureuser@20.115.96.120 << 'EOF'
             sudo rm -rf backend-api
-            sudo mkdir backend-api
-            sudo chown -R azureuser:azureuser backend-api
-            exit
-          EOF
-
-          scp -r ./* ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:backend-api/
-
-          ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} << 'EOF'
+            git clone <your-private-repo-url>
             cd backend-api
             npm install
-            sudo pkill node || true
+            sudo fuser -k 80/tcp || true
             sudo node index.js &
           EOF
