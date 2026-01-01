@@ -16,15 +16,28 @@ jobs:
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.7.0
         with:
-          ssh-private-key: ${{ secrets.VM_SSH_KEY }}
+          ssh-private-key: |
+            ${{ secrets.VM_SSH_KEY }}
 
-      - name: Deploy to VM
+      - name: Prepare VM
         run: |
           ssh -o StrictHostKeyChecking=no azureuser@20.115.96.120 << 'EOF'
-            sudo rm -rf backend-api
-            git clone <your-private-repo-url>
-            cd backend-api
+            sudo apt update
+            curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+            sudo apt install -y nodejs
+            rm -rf /home/azureuser/backend-api
+            mkdir -p /home/azureuser/backend-api
+          EOF
+
+      - name: Copy code to VM
+        run: |
+          scp -o StrictHostKeyChecking=no -r ./* azureuser@20.115.96.120:/home/azureuser/backend-api
+
+      - name: Run application
+        run: |
+          ssh -o StrictHostKeyChecking=no azureuser@20.115.96.120 << 'EOF'
+            cd /home/azureuser/backend-api
             npm install
             sudo fuser -k 80/tcp || true
-            sudo node index.js &
+            nohup sudo node index.js > app.log 2>&1 &
           EOF
