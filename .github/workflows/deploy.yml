@@ -1,4 +1,4 @@
-name: Deploy Backend API
+name: Deploy Backend API (Zero Downtime)
 
 on:
   push:
@@ -25,6 +25,8 @@ jobs:
             sudo apt update
             curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
             sudo apt install -y nodejs
+            sudo npm install -g pm2
+            sudo setcap 'cap_net_bind_service=+ep' $(which node)
             rm -rf /home/azureuser/backend-api
             mkdir -p /home/azureuser/backend-api
           EOF
@@ -33,11 +35,18 @@ jobs:
         run: |
           scp -o StrictHostKeyChecking=no -r ./* azureuser@20.115.96.120:/home/azureuser/backend-api
 
-      - name: Run application
+      - name: Zero Downtime Deploy with PM2
         run: |
           ssh -o StrictHostKeyChecking=no azureuser@20.115.96.120 << 'EOF'
             cd /home/azureuser/backend-api
             npm install
-            sudo fuser -k 80/tcp || true
-            nohup sudo node index.js > app.log 2>&1 &
+
+            pm2 describe backend-api > /dev/null
+            if [ $? -eq 0 ]; then
+              pm2 reload backend-api
+            else
+              pm2 start index.js --name backend-api
+            fi
+
+            pm2 save
           EOF
